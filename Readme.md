@@ -1,0 +1,1 @@
+A go port of CONIKS (project homepage, github, paper).
