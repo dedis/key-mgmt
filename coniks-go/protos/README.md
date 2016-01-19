@@ -15,4 +15,4 @@ Assuming you have protoc installed, run the following commands from the projects
  protoc --go_out=../common/ *.proto
 ```
 
-You will have to fix the files manually.
+You might have to fix the files manually.

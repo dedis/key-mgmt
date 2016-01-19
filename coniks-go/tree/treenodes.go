@@ -2,21 +2,54 @@ package tree
 
 import "log"
 
+
+type TreeNodeI interface {
+	Left() *TreeNodeI
+	Right() *TreeNodeI
+	Parent() *TreeNodeI
+	Level() int
+	Name()  string
+	Clone(parent *TreeNodeI, curEpoch, nextEpoch int) *TreeNodeI
+}
+
+
 // TreeNode Represents an generic tree node in the CONIKS binary Merkle prefix tree.
 type TreeNode struct {
 	// XXX for simplicity everything is public <- change that soon
-	Left   *TreeNode
-	Right  *TreeNode
+	left   *TreeNodeI
+	right  *TreeNodeI
 
-	Parent *TreeNode
-	Level  int
+	parent *TreeNodeI
+	level  int
 
-	Name   string
+	name   string
 }
 
-func (tn *TreeNode) Clone(parent *TreeNode, curEpoch int, nextEpoch int) *UserLeafNode {
-	panic("Unsupported method call")
+func (tn *TreeNode) Left() *TreeNodeI {
+	return tn.left
 }
+
+func (tn *TreeNode) Right() *TreeNodeI {
+	return tn.right
+}
+
+func (tn *TreeNode) Parent() *TreeNodeI {
+	return tn.parent
+}
+
+func (tn *TreeNode) Level() int {
+	return tn.level
+}
+
+func (tn *TreeNode) Name() string {
+	return tn.name
+}
+
+func (tn *TreeNode) Clone(parent *TreeNodeI, curEpoch, nextEpoch int) *TreeNodeI {
+	panic("Shouldn't be called")
+	return nil
+}
+
 
 // LeafNode does not add any functionality, just use an alias
 type LeafNode TreeNode
@@ -42,17 +75,38 @@ type UserLeafNode struct {
 
 	Index                  []byte
 	Signature              []byte
-
 }
+
+func (tn *UserLeafNode) Left() *TreeNodeI {
+	return tn.left
+}
+
+func (tn *UserLeafNode) Right() *TreeNodeI {
+	return tn.right
+}
+
+func (tn *UserLeafNode) Parent() *TreeNodeI {
+	return tn.parent
+}
+
+func (tn *UserLeafNode) Level() int {
+	return tn.level
+}
+
+func (tn *UserLeafNode) Name() string {
+	return tn.name
+}
+
+
 
 // NewUserLeafNode create a UserLeafNode from the given arguments
 func NewUserLeafNode(username string, pub string, epoch int, lvl int, index []byte) *UserLeafNode {
 	return &UserLeafNode{
 		LeafNode: &LeafNode{
-			Left: nil,
-			Right: nil,
-			Parent: nil,
-			Level: lvl,
+			left: nil,
+			right: nil,
+			parent: nil,
+			level: lvl,
 		},
 		Username: username,
 		PubKey: pub,
@@ -64,22 +118,20 @@ func NewUserLeafNode(username string, pub string, epoch int, lvl int, index []by
 	}
 }
 
-type Cloneable interface {
-	Clone(*TreeNode, int, int) *TreeNode
-}
 
 // Clone duplicates the given user leaf node from the current epoch for the next epoch with the
 // given parent tree node.
 //
 // This function is called as part of the CONIKS Merkle tree
 // rebuilding process at the beginning of every epoch.
-func (uln *UserLeafNode) Clone(parent *TreeNode, curEpoch int, nextEpoch int) *UserLeafNode {
+func (uln *UserLeafNode) Clone(parent *TreeNodeI, curEpoch int, nextEpoch int) *TreeNodeI {
 	log.Println("UserLeafNode Clone() called")
 	// FIXME epochs aren't even used (compare UserLeafNode.java)
-	cloneN := NewUserLeafNode(uln.Username, uln.PubKey, uln.EpochAdded, uln.Level, uln.Index)
-	cloneN.Parent = parent
+	var cloneN TreeNodeI
+	cloneN = NewUserLeafNode(uln.Username, uln.PubKey, uln.EpochAdded, uln.level, uln.Index)
+	//cloneN.parent = parent
 
-	return cloneN
+	return &cloneN
 }
 
 type RootNode struct {
@@ -91,13 +143,13 @@ type RootNode struct {
 // NewRootNode constructs a root node specified  with left and right subtrees,
 // the hash of the previous epoch's tree root {@code prev},
 // the level in tree {@code lvl}, and the epoch {@code ep} for which this root is valid.
-func NewRootNode(left TreeNode, right TreeNode, lvl int, prev []byte, ep int, lh ,rh []byte) *RootNode {
+func NewRootNode(left TreeNodeI, right TreeNodeI, lvl int, prev []byte, ep int, lh ,rh []byte) *RootNode {
 	return &RootNode{
 		InteriorNode: &InteriorNode{
 			TreeNode: &TreeNode{
-				Left: &left,
-				Right: &right,
-				Level: lvl,
+				left: &left,
+				right: &right,
+				level: lvl,
 			},
 			LeftHash:  lh,
 			RightHash: rh,
@@ -108,17 +160,6 @@ func NewRootNode(left TreeNode, right TreeNode, lvl int, prev []byte, ep int, lh
 	}
 }
 
-func (rn *RootNode) Clone(curEpoch, nextEpoch int) *RootNode {
-	log.Println("RootNode Clone() called")
-	cloneN := NewRootNode(nil, nil, rn.Level, nil, -1, rn.LeftHash, rn.RightHash)
-	if rn.Left != nil { // XXX I suspect this won't work?
-		cloneN.Left = rn.Left.Clone(cloneN, curEpoch, nextEpoch)
-	}
-	if rn.Right != nil {
-		cloneN.Right = rn.Right.Clone(cloneN, curEpoch, nextEpoch)
-	}
-	return cloneN
-}
 
 
 // TODO PaddingLeafNode (currently not even used in the reference implementation)

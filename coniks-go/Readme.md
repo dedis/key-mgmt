@@ -1,0 +1,1 @@
+A go-lang port of CONIKS ([project homepage](http://www.coniks.org/), [github](https://github.com/coniks-sys/coniks-ref-implementation), [paper](https://www.usenix.org/system/files/conference/usenixsecurity15/sec15-paper-melara.pdf)).

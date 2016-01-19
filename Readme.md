@@ -1,1 +1,1 @@
-A go port of CONIKS (project homepage, github, paper).
+# Scalable, collectively signed key-management for end-users
