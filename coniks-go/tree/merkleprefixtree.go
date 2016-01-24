@@ -92,14 +92,15 @@ func HashInternalNode(prefixBits []bool, childHashes *[2][HashBytes]byte) []byte
 	binary.LittleEndian.PutUint32(buf, uint32(len(prefixBits)))
 	h.Write(buf)
 	var ret [HashBytes]byte
-	h.Sum(ret)
-	return ret[:]
+	return h.Sum(ret[:])
+
 }
 
 // This is the same as in the CONIKS paper.
 // H(k_empty || nonce || prefix || depth)
 func HashEmptyBranch(treeNonce []byte, prefixBits []bool) []byte {
 	h:= suite.Hash()
+	defer h.Reset()
 	h.Write([]byte{EmptyBranchIdentifier})
 	h.Write(treeNonce)
 	h.Write(ToBytes(prefixBits))
@@ -107,13 +108,13 @@ func HashEmptyBranch(treeNonce []byte, prefixBits []bool) []byte {
 	binary.LittleEndian.PutUint32(buf, uint32(len(prefixBits)))
 	h.Write(buf)
 	var ret [HashBytes]byte
-	ret = h.Sum(ret)
-	return ret[:]
+	return h.Sum(ret[:])
 }
 
 // This is the same as in the CONIKS paper: H(k_leaf || nonce || index || depth || value)
 func HashLeaf(treeNonce []byte, indexBytes []byte, depth int, value []byte) []byte {
 	h:= suite.Hash()
+	defer h.Reset()
 	h.Write([]byte{LeafIdentifier})
 	h.Write(treeNonce)
 	h.Write(indexBytes)
@@ -122,8 +123,7 @@ func HashLeaf(treeNonce []byte, indexBytes []byte, depth int, value []byte) []by
 	h.Write(buf)
 	h.Write(value)
 	var ret [HashBytes]byte
-	ret = h.Sum(ret)
-	return ret[:]
+	return  h.Sum(ret[:])
 }
 
 func BitToIndex(b bool) int {
