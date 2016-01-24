@@ -21,7 +21,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/yahoo/coname"
+	merkle "github.com/dedis/key-mgmt/coniks-go/tree"
 	"github.com/yahoo/coname/proto"
 	"github.com/yahoo/coname/keyserver/kv"
 )
@@ -80,7 +80,7 @@ type Snapshot struct {
 type diskNode struct {
 	isLeaf      bool
 	childIds    [2]uint64                 // 0 if the node is a leaf
-	childHashes [2][coname.HashBytes]byte // zeroed if the node is a leaf
+	childHashes [2][merkle.HashBytes]byte // zeroed if the node is a leaf
 	value       []byte                    // nil if the node is not a leaf
 	indexBytes  []byte                    // nil if the node is not a leaf
 }
@@ -128,7 +128,7 @@ func makeTracingNode(tree *MerkleTree, trace *proto.TreeProof, n *node) *LookupT
 	}
 }
 
-var _ coname.MerkleNode = (*LookupTracingNode)(nil)
+var _ merkle.MerkleNode = (*LookupTracingNode)(nil)
 
 func (n *LookupTracingNode) IsEmpty() bool {
 	return n == nil
@@ -143,10 +143,10 @@ func (n *LookupTracingNode) Depth() int {
 }
 
 func (n *LookupTracingNode) ChildHash(rightChild bool) []byte {
-	return n.node.childHashes[coname.BitToIndex(rightChild)][:]
+	return n.node.childHashes[merkle.BitToIndex(rightChild)][:]
 }
 
-func (n *LookupTracingNode) Child(rightChild bool) (coname.MerkleNode, error) {
+func (n *LookupTracingNode) Child(rightChild bool) (merkle.MerkleNode, error) {
 	if len(n.trace.Neighbors) != n.Depth() {
 		log.Panicf("unexpected access pattern: at depth %v, have %v", n.Depth(), n.trace.Neighbors)
 	}
@@ -185,8 +185,8 @@ func (snapshot *NewSnapshot) Lookup(indexBytes []byte) (value []byte, trace *pro
 
 func (tree *MerkleTree) lookup(root *node, indexBytes []byte) (value []byte, trace *proto.TreeProof, err error) {
 	trace = &proto.TreeProof{}
-	var tracingRoot coname.MerkleNode = makeTracingNode(tree, trace, root)
-	value, err = coname.TreeLookup(tracingRoot, indexBytes)
+	var tracingRoot merkle.MerkleNode = makeTracingNode(tree, trace, root)
+	value, err = merkle.TreeLookup(tracingRoot, indexBytes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -206,14 +206,14 @@ func (snapshot *Snapshot) BeginModification() (*NewSnapshot, error) {
 // Set updates the leaf value at the index (or inserts it if it did not exist).
 // In-memory: doesn't actually touch the disk yet.
 	func (snapshot *NewSnapshot) Set(indexBytes []byte, value []byte) (err error) {
-	if len(indexBytes) != coname.IndexBytes {
+	if len(indexBytes) != merkle.IndexBytes {
 		return fmt.Errorf("Wrong index length")
 	}
-	if len(value) != coname.HashBytes {
+	if len(value) != merkle.HashBytes {
 		return fmt.Errorf("Wrong value length")
 	}
 	value = append([]byte(nil), value...) // Make a copy of value
-	indexBits := coname.ToBits(coname.IndexBits, indexBytes)
+	indexBits := merkle.ToBits(merkle.IndexBits, indexBytes)
 	nodePointer := &snapshot.root
 	position := 0
 	// Traverse down the tree, following either the left or right child depending on the next bit.
@@ -240,7 +240,7 @@ func (snapshot *Snapshot) BeginModification() (*NewSnapshot, error) {
 	} else {
 		// We have a different leaf with a matching prefix. We'll have to create new intermediate nodes.
 		oldLeaf := *nodePointer
-		oldLeafIndexBits := coname.ToBits(coname.IndexBits, oldLeaf.indexBytes)
+		oldLeafIndexBits := merkle.ToBits(merkle.IndexBits, oldLeaf.indexBytes)
 		// Create a new intermediate node for each bit that has now become shared.
 		for oldLeafIndexBits[position] == indexBits[position] {
 			newNode := &node{
@@ -249,7 +249,7 @@ func (snapshot *Snapshot) BeginModification() (*NewSnapshot, error) {
 				},
 				prefixBits: indexBits[:position],
 			}
-			*nodePointer, nodePointer = newNode, &newNode.children[coname.BitToIndex(indexBits[position])]
+			*nodePointer, nodePointer = newNode, &newNode.children[merkle.BitToIndex(indexBits[position])]
 			position++
 		}
 		// Create a new node at which the tree now branches.
@@ -270,8 +270,8 @@ func (snapshot *Snapshot) BeginModification() (*NewSnapshot, error) {
 		}
 		// Move the old leaf's index down
 		oldLeaf.prefixBits = oldLeafIndexBits[:position+1]
-		splitNode.children[coname.BitToIndex(indexBits[position])] = newLeaf
-		splitNode.children[coname.BitToIndex(oldLeafIndexBits[position])] = oldLeaf
+		splitNode.children[merkle.BitToIndex(indexBits[position])] = newLeaf
+		splitNode.children[merkle.BitToIndex(oldLeafIndexBits[position])] = oldLeaf
 		*nodePointer = splitNode
 	}
 	return nil
@@ -322,7 +322,7 @@ func (tree *MerkleTree) loadNode(id uint64, prefixBits []bool) (*node, error) {
 
 // flush writes the updated nodes under this node to disk, returning the updated hash and ID of the
 // node. Assumes ownership of the array underlying prefixBits.
-func (t *MerkleTree) flushNode(prefixBits []bool, n *node, wb kv.Batch) (id uint64, hash [coname.HashBytes]byte) {
+func (t *MerkleTree) flushNode(prefixBits []bool, n *node, wb kv.Batch) (id uint64, hash [merkle.HashBytes]byte) {
 	if n != nil {
 		for i := 0; i < 2; i++ {
 			if n.children[i] != nil /* child present */ || n.childIds[i] == 0 /* actually an empty branch */ {
@@ -342,7 +342,7 @@ func (t *MerkleTree) storeNode(id uint64, n *node, wb kv.Batch) {
 }
 
 func (t *MerkleTree) getChildPointer(n *node, isRight bool) (**node, error) {
-	ix := coname.BitToIndex(isRight)
+	ix := merkle.BitToIndex(isRight)
 	if n.childIds[ix] != 0 && n.children[ix] == nil {
 		// lazy-load the child. *don't* append to n.prefixBits!
 		childIndex := append(append([]bool{}, n.prefixBits...), isRight)
@@ -356,7 +356,7 @@ func (t *MerkleTree) getChildPointer(n *node, isRight bool) (**node, error) {
 }
 
 func (t *MerkleTree) serializeKey(id uint64, prefixBits []bool) []byte {
-	indexBytes := coname.ToBytes(prefixBits)
+	indexBytes := merkle.ToBytes(prefixBits)
 	key := make([]byte, 0, len(t.nodeKeyPrefix)+len(indexBytes)+4+1+8)
 	key = append(key, t.nodeKeyPrefix...)
 	key = append(key, indexBytes...)
@@ -371,10 +371,10 @@ func (t *MerkleTree) serializeKey(id uint64, prefixBits []bool) []byte {
 
 func (n *diskNode) serialize() []byte {
 	if n.isLeaf {
-		return append(append([]byte{coname.LeafIdentifier}, n.indexBytes...), n.value...)
+		return append(append([]byte{merkle.LeafIdentifier}, n.indexBytes...), n.value...)
 	} else {
-		buf := make([]byte, 1, 1+2*8+2*coname.HashBytes)
-		buf[0] = coname.InternalNodeIdentifier
+		buf := make([]byte, 1, 1+2*8+2*merkle.HashBytes)
+		buf[0] = merkle.InternalNodeIdentifier
 		for i := 0; i < 2; i++ {
 			binary.LittleEndian.PutUint64(buf[len(buf):len(buf)+8], uint64(n.childIds[i]))
 			buf = buf[:len(buf)+8]
@@ -385,24 +385,24 @@ func (n *diskNode) serialize() []byte {
 }
 
 func deserializeNode(buf []byte) (n diskNode) {
-	if buf[0] == coname.LeafIdentifier {
+	if buf[0] == merkle.LeafIdentifier {
 		n.isLeaf = true
 		buf = buf[1:]
-		n.indexBytes = buf[:coname.IndexBytes]
-		buf = buf[coname.IndexBytes:]
-		n.value = buf[:coname.HashBytes]
-		buf = buf[coname.HashBytes:]
+		n.indexBytes = buf[:merkle.IndexBytes]
+		buf = buf[merkle.IndexBytes:]
+		n.value = buf[:merkle.HashBytes]
+		buf = buf[merkle.HashBytes:]
 		if len(buf) != 0 {
 			log.Panic("bad leaf node length")
 		}
-	} else if buf[0] == coname.InternalNodeIdentifier {
+	} else if buf[0] == merkle.InternalNodeIdentifier {
 		n.isLeaf = false
 		buf = buf[1:]
 		for i := 0; i < 2; i++ {
 			n.childIds[i] = uint64(binary.LittleEndian.Uint64(buf[:8]))
 			buf = buf[8:]
-			copy(n.childHashes[i][:], buf[:coname.HashBytes])
-			buf = buf[coname.HashBytes:]
+			copy(n.childHashes[i][:], buf[:merkle.HashBytes])
+			buf = buf[merkle.HashBytes:]
 		}
 		if len(buf) != 0 {
 			log.Panic("bad intermediate node length")
@@ -415,10 +415,10 @@ func deserializeNode(buf []byte) (n diskNode) {
 
 func (t *MerkleTree) hash(prefixBits []bool, n *node) []byte {
 	if n == nil {
-		return coname.HashEmptyBranch(t.treeNonce, prefixBits)
+		return merkle.HashEmptyBranch(t.treeNonce, prefixBits)
 	} else if n.isLeaf {
-		return coname.HashLeaf(t.treeNonce, n.indexBytes, len(prefixBits), n.value)
+		return merkle.HashLeaf(t.treeNonce, n.indexBytes, len(prefixBits), n.value)
 	} else {
-		return coname.HashInternalNode(prefixBits, &n.childHashes)
+		return merkle.HashInternalNode(prefixBits, &n.childHashes)
 	}
 }

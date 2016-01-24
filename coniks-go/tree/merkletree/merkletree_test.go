@@ -25,7 +25,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/yahoo/coname"
+	merkle "github.com/dedis/key-mgmt/coniks-go/tree"
 	"github.com/yahoo/coname/proto"
 	"github.com/yahoo/coname/keyserver/kv"
 	"github.com/yahoo/coname/keyserver/kv/leveldbkv"
@@ -48,18 +48,18 @@ func withDB(f func(kv.DB)) {
 }
 
 func verifyProof(s *Snapshot, index, value []byte, proof *proto.TreeProof) {
-	reconstructed, err := coname.ReconstructTree(proof, coname.ToBits(coname.IndexBits, index))
+	reconstructed, err := merkle.ReconstructTree(proof, merkle.ToBits(merkle.IndexBits, index))
 	if err != nil {
 		panic(err)
 	}
-	redoneLookup, err := coname.TreeLookup(reconstructed, index)
+	redoneLookup, err := merkle.TreeLookup(reconstructed, index)
 	if err != nil {
 		panic(err)
 	}
 	if got, want := redoneLookup, value; !bytes.Equal(got, want) {
 		log.Panicf("reconstructed lookup got different result: %v rather than %v", got, want)
 	}
-	recomputedHash, err := coname.RecomputeHash(treeNonce, reconstructed)
+	recomputedHash, err := merkle.RecomputeHash(treeNonce, reconstructed)
 	if err != nil {
 		panic(err)
 	}

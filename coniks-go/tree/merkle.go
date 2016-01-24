@@ -1,4 +1,4 @@
-package tree
+package merkle
 
 import (
 	"bytes"
