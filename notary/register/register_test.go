@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// the public key the user wants to register:
 var dummyTestKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: Mailvelope v1.3.4
 Comment: https://www.mailvelope.com

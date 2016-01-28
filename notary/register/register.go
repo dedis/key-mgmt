@@ -24,8 +24,8 @@ package register
 
 import (
 	"bytes"
-	"crypto/md5"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -89,8 +89,7 @@ func sendConfirmationLink(userMail string, userEntity pgp.EntityList) error {
 	if _, err := rand.Read(token); err != nil {
 		return err
 	}
-	// XXX md5 secure enough for this purpose?
-	sum := md5.Sum(token)
+	sum := sha256.Sum256(token)
 	// XXX use TLS
 	url := fmt.Sprintf("http://%s/confirm?t=%s", hostName, base64.URLEncoding.EncodeToString(sum[:]))
 	msg := "TODO ... \n" + url
