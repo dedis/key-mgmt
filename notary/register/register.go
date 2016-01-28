@@ -28,6 +28,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/mail"
 	"net/smtp"
 	"strings"
@@ -35,6 +36,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	pgp "golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
 	"golang.org/x/crypto/openpgp/packet"
 )
 
@@ -95,23 +97,32 @@ func sendConfirmationLink(userMail string, userEntity pgp.EntityList) error {
 
 	fmt.Println("Clear text", msg)
 	buf := new(bytes.Buffer)
-	w, err := pgp.Encrypt(buf, userEntity, nil, nil, nil)
+	a, _ := armor.Encode(buf, "PGP MESSAGE", nil)
+	plaintext, err := pgp.Encrypt(a, userEntity, nil, /*use server's key to sign msg*/
+		nil, nil)
 	if err != nil {
 		return err
 	}
 
-	_, err = w.Write([]byte(msg))
+	//_, err = plaintext.Write([]byte(msg))
+	fmt.Fprintf(plaintext, msg)
 	if err != nil {
 		return err
 	}
-	err = w.Close()
+	err = plaintext.Close()
+	a.Close()
 	if err != nil {
 		return err
 	}
 
 	// TODO write mail in (go routine) and write token into pending tokens DB
 	fmt.Println("TODO send message")
-	fmt.Println("Encrypted", w)
+	// Encode to base64
+	bytes, err := ioutil.ReadAll(buf)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(bytes))
 
 	return nil
 }
@@ -131,8 +142,7 @@ func storePendingUserToMerkle(token []byte) error {
 		return err
 	}
 
-	bReader := bytes.NewReader(b)
-	pReader := packet.NewReader(bReader)
+	pReader := packet.NewReader(bytes.NewReader(b))
 	entity, err := pgp.ReadEntity(pReader)
 	if err != nil {
 		db.Delete(token, nil)

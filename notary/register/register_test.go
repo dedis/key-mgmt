@@ -89,7 +89,9 @@ func TestSaveAndReadTokenData(t *testing.T) {
 	if err := saveToken(sum[:], uMail, entity); err != nil {
 		t.Fatal("Could not save token:", err)
 	}
-	sendConfirmationLink(uMail, entityList)
+	if err := sendConfirmationLink(uMail, entityList); err != nil {
+		t.Fatal("Could not send encrypted challenge mail:", err)
+	}
 	if err := storePendingUserToMerkle(sum[:]); err != nil {
 		t.Fatal("Could not store pending user, did not find token:", err)
 	}
