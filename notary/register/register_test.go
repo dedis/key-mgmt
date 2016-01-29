@@ -67,16 +67,16 @@ Wy2ql73ybEHzE5sxahqh4Msl0HBYpVbFYb91rYoGBb8=
 `
 
 func TestValidData(t *testing.T) {
-	ok, entityList := validData("user@freetopia.org", dummyTestKey)
+	ok, entity := validData("user@freetopia.org", dummyTestKey)
 	if !ok {
 		t.Fatal("Could not parse key or email")
 	}
-	fmt.Printf("FYI: got %s\nwith len=%d", entityList, len(entityList))
+	fmt.Printf("FYI: got %s\n", entity)
 }
 
 func TestSaveAndReadTokenData(t *testing.T) {
 	uMail := "user@freetopia.org"
-	ok, entityList := validData(uMail, dummyTestKey)
+	ok, entity := validData(uMail, dummyTestKey)
 	if !ok {
 		t.Fatal("Could not parse key or email")
 	}
@@ -85,12 +85,11 @@ func TestSaveAndReadTokenData(t *testing.T) {
 		t.Fatal("Could not generate token", err)
 	}
 	// XXX md5 secure enough for this purpose?
-	entity := *entityList[0]
 	sum := md5.Sum(token)
-	if err := saveToken(sum[:], uMail, entity); err != nil {
+	if err := saveToken(sum[:], uMail, *entity); err != nil {
 		t.Fatal("Could not save token:", err)
 	}
-	if err := sendConfirmationLink(uMail, entityList); err != nil {
+	if err := sendConfirmationLink(uMail, *entity); err != nil {
 		t.Fatal("Could not send encrypted challenge mail:", err)
 	}
 	if err := storePendingUserToMerkle(sum[:]); err != nil {
