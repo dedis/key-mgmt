@@ -1,4 +1,4 @@
-// register contains all functionality to register a new email-to-key-binding
+// Package register contains all functionality to register a new email-to-key-binding
 //
 // The protocol can be summarized as follows:
 //
@@ -48,7 +48,10 @@ var db *leveldb.DB
 // XXX move all gloabl vars to config:
 var hostName string
 var authC authConfig
-var debug bool = true
+var debug = true
+
+// TokenLen is the const length of one token send by e-mail
+const TokenLen = sha256.Size
 
 type authConfig struct {
 	Identity string
@@ -167,7 +170,10 @@ func saveToken(token []byte, uAdress string, entitiy openpgp.Entity) error {
 	return db.Put(token, buf.Bytes(), &opt.WriteOptions{Sync: true})
 }
 
-func storePendingUserToMerkle(token []byte) error {
+// StorePendingUser stores the user-to-PK binding in the prefix-merkle tree
+// after he received an e-mail challenge to prove he controls the e-mail address
+// and the claimed private-key
+func StorePendingUser(token []byte) error {
 	b, err := db.Get(token, nil)
 
 	if err != nil {
