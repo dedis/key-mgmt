@@ -76,7 +76,7 @@ func init() {
 	if err != nil {
 		panic("Couldn't read config:" + err.Error())
 	}
-	fmt.Printf("config: %+v", authC)
+	// fmt.Printf("config: %+v", authC)
 	hostName = "localhost:8080"
 }
 
@@ -100,13 +100,10 @@ func validData(userMail string, publicKey string) (bool, *openpgp.Entity) { // X
 }
 
 func sendConfirmationLink(userMail string, userEntity openpgp.Entity) error {
-	token := make([]byte, 32)
-	if _, err := rand.Read(token); err != nil {
-		return err
-	}
-	sum := sha256.Sum256(token)
+	tokenHash, err := generateToken()
+	tokenHashB64 := base64.URLEncoding.EncodeToString(tokenHash[:])
 	// XXX use TLS
-	url := fmt.Sprintf("http://%s/confirm?t=%s", hostName, base64.URLEncoding.EncodeToString(sum[:]))
+	url := fmt.Sprintf("http://%s/confirm?t=%s", hostName, tokenHashB64)
 	msg := "TODO use e-mail template ... \n" + url
 
 	buf := new(bytes.Buffer)
@@ -157,10 +154,20 @@ func sendConfirmationLink(userMail string, userEntity openpgp.Entity) error {
 				return
 			}
 		}
-		saveToken(token, userMail, userEntity)
+		saveToken(tokenHash, userMail, userEntity)
 	}()
 
 	return nil
+}
+
+// returns a random token, which can be used to send out regeistration mails
+func generateToken() ([]byte, error) {
+	r := make([]byte, 32)
+	if _, err := rand.Read(r); err != nil {
+		return r, err
+	}
+	tokenHash := sha256.Sum256(r)
+	return tokenHash[:], nil
 }
 
 func saveToken(token []byte, uAdress string, entitiy openpgp.Entity) error {

@@ -1,11 +1,6 @@
 package register
 
-import (
-	"crypto/md5"
-	"crypto/rand"
-	"fmt"
-	"testing"
-)
+import "testing"
 
 // the public key the user wants to register:
 var dummyTestKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -68,31 +63,20 @@ Wy2ql73ybEHzE5sxahqh4Msl0HBYpVbFYb91rYoGBb8=
 
 func TestValidData(t *testing.T) {
 	ok, entity := validData("user@freetopia.org", dummyTestKey)
-	if !ok {
+	if !ok || entity == nil {
 		t.Fatal("Could not parse key or email")
 	}
-	fmt.Printf("FYI: got %s\n", entity)
+	// fmt.Printf("FYI: got %s\n", entity)
 }
 
-func TestSaveAndReadTokenData(t *testing.T) {
+func TestParseDataAndSendConfirmationLink(t *testing.T) {
 	uMail := "user@freetopia.org"
 	ok, entity := validData(uMail, dummyTestKey)
 	if !ok {
 		t.Fatal("Could not parse key or email")
 	}
-	token := make([]byte, 32)
-	if _, err := rand.Read(token); err != nil {
-		t.Fatal("Could not generate token", err)
-	}
-	// XXX md5 secure enough for this purpose?
-	sum := md5.Sum(token)
-	if err := saveToken(sum[:], uMail, *entity); err != nil {
-		t.Fatal("Could not save token:", err)
-	}
+
 	if err := sendConfirmationLink(uMail, *entity); err != nil {
 		t.Fatal("Could not send encrypted challenge mail:", err)
-	}
-	if err := storePendingUserToMerkle(sum[:]); err != nil {
-		t.Fatal("Could not store pending user, did not find token:", err)
 	}
 }

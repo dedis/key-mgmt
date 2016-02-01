@@ -20,11 +20,10 @@ func Confirm(w http.ResponseWriter, r *http.Request) {
 	// to merkle tree
 	tokenStr := r.URL.Query().Get("t")
 	token := []byte(tokenStr)
-	if len(token) != register.TokenLen { // more validation
-		// return some JSON
-		return
+	if len(token) == register.TokenLen { // more validation
+		register.StorePendingUser(token)
+		//
 	}
-	register.StorePendingUser(token)
 
 	//fmt.Fprintf(w, "TODO handle %s with query %s!", r.URL.Path[1:], r.URL.Query())
 }
