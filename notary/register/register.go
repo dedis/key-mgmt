@@ -28,6 +28,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -48,7 +49,7 @@ var db *leveldb.DB
 // XXX move all gloabl vars to config:
 var hostName string
 var authC authConfig
-var debug = true
+var debug = false
 
 // TokenLen is the const length of one token send by e-mail
 const TokenLen = sha256.Size
@@ -80,7 +81,15 @@ func init() {
 	hostName = "localhost:8080"
 }
 
-func validData(userMail string, publicKey string) (bool, *openpgp.Entity) { // XXX error handling
+// for testing purposes only:
+func validStrData(userMail string, publicKeyString string) (bool, *openpgp.Entity) {
+	return ValidData(userMail, bytes.NewBufferString(publicKeyString))
+}
+
+// ValidData validates if we got a:
+// - valid email address string
+// - valid public key (publicKeyReader contains a parsable public key)
+func ValidData(userMail string, publicKeyReader io.Reader) (bool, *openpgp.Entity) { // XXX error handling
 	e, err := mail.ParseAddress(userMail)
 	if err != nil {
 		return false, nil
@@ -89,7 +98,7 @@ func validData(userMail string, publicKey string) (bool, *openpgp.Entity) { // X
 	if len(e.Address) == 0 || strings.EqualFold(e.Name, userMail) {
 		return false, nil
 	}
-	entityList, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(publicKey))
+	entityList, err := openpgp.ReadArmoredKeyRing(publicKeyReader)
 	if err != nil || entityList == nil || len(entityList) == 0 {
 		return false, nil
 	}
@@ -99,7 +108,7 @@ func validData(userMail string, publicKey string) (bool, *openpgp.Entity) { // X
 	return true, entityList[0]
 }
 
-func sendConfirmationLink(userMail string, userEntity openpgp.Entity) error {
+func SendConfirmationLink(userMail string, userEntity openpgp.Entity) error {
 	tokenHash, err := generateToken()
 	tokenHashB64 := base64.URLEncoding.EncodeToString(tokenHash[:])
 	// XXX use TLS
@@ -108,7 +117,8 @@ func sendConfirmationLink(userMail string, userEntity openpgp.Entity) error {
 
 	buf := new(bytes.Buffer)
 	armored, _ := armor.Encode(buf, "PGP MESSAGE", nil)
-	plaintext, err := openpgp.Encrypt(armored, openpgp.EntityList{&userEntity}, nil, // TODO use server's private key to sign msg
+	plaintext, err := openpgp.Encrypt(armored, openpgp.EntityList{&userEntity}, nil,
+		// TODO use server's private key to sign msg
 		nil, nil)
 	if err != nil {
 		return err
@@ -127,8 +137,10 @@ func sendConfirmationLink(userMail string, userEntity openpgp.Entity) error {
 		return err
 	}
 
+	// XXX refactor into function:
 	// send e-mail and write token into pending tokens DB
-	go func() {
+	func() {
+		fmt.Println("Send mail")
 		msgBytes, err := ioutil.ReadAll(buf)
 		if err != nil {
 			log.Print(err)
@@ -153,6 +165,7 @@ func sendConfirmationLink(userMail string, userEntity openpgp.Entity) error {
 				log.Print(err)
 				return
 			}
+			fmt.Println("Done: Send mail")
 		}
 		saveToken(tokenHash, userMail, userEntity)
 	}()

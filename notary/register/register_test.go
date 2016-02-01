@@ -75,8 +75,8 @@ func TestParseDataAndSendConfirmationLink(t *testing.T) {
 	if !ok {
 		t.Fatal("Could not parse key or email")
 	}
-
-	if err := sendConfirmationLink(uMail, *entity); err != nil {
+	// if debug == false, will send an email accodring to smtp.toml
+	if err := sendConfirmationLink("Ismail.Khoffi@gmail.com", *entity); err != nil {
 		t.Fatal("Could not send encrypted challenge mail:", err)
 	}
 }

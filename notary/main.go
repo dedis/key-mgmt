@@ -15,7 +15,7 @@ func main() {
 	// TODO read config (port, public-key etc)
 
 	http.HandleFunc("/register", http_front.Register)
-	http.HandleFunc("/update", http_front.Update)
+	// http.HandleFunc("/update", http_front.Update)
 	http.HandleFunc("/confirm", http_front.Confirm)
 	http.HandleFunc("/lookup", http_front.Lookup)
 
