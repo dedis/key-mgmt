@@ -81,11 +81,6 @@ func init() {
 	hostName = "localhost:8080"
 }
 
-// for testing purposes only:
-func validStrData(userMail string, publicKeyString string) (bool, *openpgp.Entity) {
-	return ValidData(userMail, bytes.NewBufferString(publicKeyString))
-}
-
 // ValidData validates if we got a:
 // - valid email address string
 // - valid public key (publicKeyReader contains a parsable public key)
@@ -108,12 +103,16 @@ func ValidData(userMail string, publicKeyReader io.Reader) (bool, *openpgp.Entit
 	return true, entityList[0]
 }
 
+// SendConfirmationLink sends out an encrypted e-mail challenge
+// decrypting the mail and triggering a post request with the confirmation link
+// contained, proves control over the e-mail adress and possesion of the corresponding
+// private key
 func SendConfirmationLink(userMail string, userEntity openpgp.Entity) error {
 	tokenHash, err := generateToken()
 	tokenHashB64 := base64.URLEncoding.EncodeToString(tokenHash[:])
 	// XXX use TLS
 	url := fmt.Sprintf("http://%s/confirm?t=%s", hostName, tokenHashB64)
-	msg := "TODO use e-mail template ... \n" + url
+	msg := "TODO use an e-mail template ... \n" + url
 
 	buf := new(bytes.Buffer)
 	armored, _ := armor.Encode(buf, "PGP MESSAGE", nil)

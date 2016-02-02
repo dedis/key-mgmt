@@ -1,6 +1,9 @@
 package register
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 // the public key the user wants to register:
 var dummyTestKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -62,7 +65,7 @@ Wy2ql73ybEHzE5sxahqh4Msl0HBYpVbFYb91rYoGBb8=
 `
 
 func TestValidData(t *testing.T) {
-	ok, entity := validData("user@freetopia.org", dummyTestKey)
+	ok, entity := ValidData("user@freetopia.org", bytes.NewBufferString(dummyTestKey))
 	if !ok || entity == nil {
 		t.Fatal("Could not parse key or email")
 	}
@@ -71,12 +74,12 @@ func TestValidData(t *testing.T) {
 
 func TestParseDataAndSendConfirmationLink(t *testing.T) {
 	uMail := "user@freetopia.org"
-	ok, entity := validData(uMail, dummyTestKey)
+	ok, entity := ValidData(uMail, bytes.NewBufferString(dummyTestKey))
 	if !ok {
 		t.Fatal("Could not parse key or email")
 	}
 	// if debug == false, will send an email accodring to smtp.toml
-	if err := sendConfirmationLink("Ismail.Khoffi@gmail.com", *entity); err != nil {
+	if err := SendConfirmationLink(uMail, *entity); err != nil {
 		t.Fatal("Could not send encrypted challenge mail:", err)
 	}
 }

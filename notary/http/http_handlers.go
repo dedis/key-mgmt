@@ -68,7 +68,7 @@ func Confirm(w http.ResponseWriter, r *http.Request) {
 		if err := register.StorePendingUser(token); err != nil {
 			fmt.Fprint(w, "Could not register")
 		} else {
-			fmt.Fprint(w, "Successfully registered")
+			fmt.Fprint(w, "Successfully stored user-key binding")
 		}
 	} else {
 		fmt.Fprintf(w, "Invalid token len=%d", len(token))
